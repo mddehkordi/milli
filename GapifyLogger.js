@@ -1,13 +1,11 @@
-require('dotenv').config(); // اگر میخوای از فایل .env استفاده کنی
+require('dotenv').config();
 const axios = require('axios');
 const mysql = require('mysql2/promise');
 const dayjs = require('dayjs');
-const pLimit = require('p-limit'); // باید نصب کنی: npm i p-limit
+const pLimit = require('p-limit');
 
 const GAPI_TOKEN = process.env.GAPI_TOKEN;
 const BASE_URL = 'https://api.gapify.ai/v1';
-const START = dayjs().startOf('day').toISOString();
-const END = dayjs().endOf('day').toISOString();
 
 const dbPool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
@@ -19,13 +17,17 @@ const dbPool = mysql.createPool({
   queueLimit: 0
 });
 
+// گرفتن مکالمات امروز با تاریخ به‌روز در هر اجرا
 async function fetchConversations() {
   try {
+    const start = dayjs().startOf('day').toISOString();
+    const end = dayjs().endOf('day').toISOString();
+
     const res = await axios.get(`${BASE_URL}/conversations`, {
       headers: { Authorization: `Bearer ${GAPI_TOKEN}` },
       params: {
-        from: START,
-        to: END,
+        from: start,
+        to: end,
         limit: 100
       }
     });
@@ -112,21 +114,33 @@ async function saveUser(user) {
   await dbPool.execute(sql, params);
 }
 
-async function saveToDatabase(conversations) {
-  const limit = pLimit(5); // محدودیت همزمانی ۵ تا
-
-  for (const convo of conversations) {
+async function saveConversationData(convo) {
+  try {
     await saveConversation(convo);
 
-    // با محدودیت همزمانی پیام‌ها رو ذخیره می‌کنیم
     const messages = await fetchMessages(convo.id);
+    const limit = pLimit(5);
+
     const saveMessagesPromises = messages.map(msg => limit(async () => {
-      await saveMessage(msg, convo.id);
-      await saveUser(msg.sender);
+      try {
+        await saveMessage(msg, convo.id);
+        await saveUser(msg.sender);
+      } catch (err) {
+        console.error(`Error saving message or user for conversation ${convo.id}:`, err.message);
+      }
     }));
 
     await Promise.all(saveMessagesPromises);
+  } catch (err) {
+    console.error(`Error processing conversation ${convo.id}:`, err.message);
   }
+}
+
+async function saveToDatabase(conversations) {
+  const limit = pLimit(3); // اجازه میدیم 3 مکالمه همزمان پردازش بشه
+
+  const promises = conversations.map(convo => limit(() => saveConversationData(convo)));
+  await Promise.all(promises);
 }
 
 async function main() {
