@@ -1,4 +1,4 @@
-require('dotenv').config({ path: './config.env' }); // اگر اسم فایل config.env هست
+require('dotenv').config({ path: './config.env' });
 
 const axios = require('axios');
 const mysql = require('mysql2/promise');
@@ -33,7 +33,8 @@ async function fetchFilteredConversations() {
         }
       }
     );
-    return response.data.data;
+    // اطمینان از اینکه همیشه آرایه برگردونده میشه
+    return Array.isArray(response.data.data) ? response.data.data : [];
   } catch (error) {
     console.error('API fetch error:', error.response ? error.response.data : error.message);
     return [];
@@ -58,15 +59,19 @@ async function saveConversation(db, convo) {
 
 async function main() {
   const db = await mysql.createConnection(DB_CONFIG);
+
   const conversations = await fetchFilteredConversations();
-  if (conversations.length === 0) {
+
+  if (!Array.isArray(conversations) || conversations.length === 0) {
     console.log('No conversations found.');
     await db.end();
     return;
   }
+
   for (const convo of conversations) {
     await saveConversation(db, convo);
   }
+
   await db.end();
   console.log('Conversations saved to database.');
 }
