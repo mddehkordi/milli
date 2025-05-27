@@ -1,7 +1,7 @@
 const axios = require('axios');
 
 const URL = 'https://app.gapify.ai/api/v1/accounts/65/conversations/1008272/messages';
-const TOKEN = 'توکن_تو_اینجا_قرار_بده';  // اگر نیاز به توکن داری اینجا بزار
+const TOKEN = 'ob4e77HBE5sKnRWmQUpQEGgB';  
 
 async function testApi() {
   try {
