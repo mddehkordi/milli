@@ -33,8 +33,7 @@ async function fetchFilteredConversations() {
         }
       }
     );
-    // اطمینان از اینکه همیشه آرایه برگردونده میشه
-    return Array.isArray(response.data.data) ? response.data.data : [];
+    return response.data.payload; // اصلاح شده
   } catch (error) {
     console.error('API fetch error:', error.response ? error.response.data : error.message);
     return [];
@@ -51,7 +50,9 @@ async function saveConversation(db, convo) {
   `;
   const params = [
     convo.id,
-    convo.last_activity_at ? new Date(convo.last_activity_at) : null,
+    convo.meta?.sender?.last_activity_at
+      ? new Date(convo.meta.sender.last_activity_at * 1000)
+      : null,
     JSON.stringify(convo)
   ];
   await db.execute(sql, params);
@@ -59,19 +60,15 @@ async function saveConversation(db, convo) {
 
 async function main() {
   const db = await mysql.createConnection(DB_CONFIG);
-
   const conversations = await fetchFilteredConversations();
-
-  if (!Array.isArray(conversations) || conversations.length === 0) {
+  if (!conversations || conversations.length === 0) {
     console.log('No conversations found.');
     await db.end();
     return;
   }
-
   for (const convo of conversations) {
     await saveConversation(db, convo);
   }
-
   await db.end();
   console.log('Conversations saved to database.');
 }
