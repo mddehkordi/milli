@@ -10,6 +10,9 @@ const DB_CONFIG = {
   password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || 'gapify_db',
 };
+console.log('TOKEN:', process.env.GAPI_TOKEN);
+console.log('DB:', process.env.DB_HOST, process.env.DB_USER, process.env.DB_PASSWORD, process.env.DB_NAME);
+
 
 async function fetchFilteredConversations() {
   try {
